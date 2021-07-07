@@ -34,11 +34,38 @@ function wpgraphqlwpml_is_graphql_request()
 
 function wpgraphqlwpml_disable_wpml($query_args, $source, $args, $context, $info)
 {
-    $query_args['suppress_wpml_where_and_join_filter'] = true;
+    // $query_args['suppress_wpml_where_and_join_filter'] = true;
     return $query_args;
 }
 
-add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_disable_wpml', 100, 5);
+add_action( 'graphql_register_types', function() {
+    register_graphql_field( 'RootQueryToPostConnectionWhereArgs', 'language', [
+        'type' => 'String',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+    register_graphql_field( 'RootQueryToProjectConnectionWhereArgs', 'language', [
+        'type' => 'String',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+} );
+
+
+
+
+add_filter( 'graphql_post_object_connection_query_args', function( $query_args, $source, $args, $context, $info ) {
+    if ( isset( $args['where']['language'] ) && in_array( $args['where']['language'], ['de', 'en'] ) ) {
+        global $sitepress;
+        $lang = $args['where']['language'];
+        $sitepress->switch_lang($lang);
+        // $sticky_ids = get_option( 'sticky_posts' );
+        // $query_args['posts_per_page'] = count( $sticky_ids );
+	    // $query_args['post__in'] = $sticky_ids;
+    }
+    return $query_args;
+}, 10, 5 );
+
+
+// add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_disable_wpml', 100, 5);
 
 function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 {
@@ -59,6 +86,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $language = [
                     'id' => null,
                     'locale' => null,
+                    'languageCode' => null
                 ];
 
                 $langInfo = wpml_get_language_information($post->ID);
@@ -72,6 +100,11 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 
                 if (isset($fields['locale'])) {
                     $language['locale'] = $locale;
+                }
+
+                if (isset($fields['languageCode'])) {
+                    // var_dump($langInfo); die();
+                    $language['languageCode'] = $langInfo["language_code"];
                 }
 
                 return $language;
@@ -134,7 +167,8 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 
                     list($thisPost, $translationUrl) = graphql_wpml_get_translation_url($post_id, $language);
 
-                    $translations[] = array('locale' => $language['default_locale'], 'id' => $post_id, 'post_title' => $thisPost->post_title, 'href' => $translationUrl);
+
+                    $translations[] = array('locale' => $language['default_locale'], 'languageCode' => $language['code'], 'id' => $post_id, 'post_title' => $thisPost->post_title, 'href' => $translationUrl, 'slug' => $thisPost->post_name);
                 }
 
                 return $translations;
@@ -270,6 +304,13 @@ function wpgraphqlwpml_action_graphql_register_types()
                     'wp-graphql-wpml'
                 ),
             ],
+            'languageCode' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language locale (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
         ],
     ]);
     register_graphql_object_type('Translation', [
@@ -291,10 +332,24 @@ function wpgraphqlwpml_action_graphql_register_types()
                     'wp-graphql-wpml'
                 ),
             ],
+            'slug' => [
+                'type' => 'String',
+                'description' => __(
+                    'the relative link to the translated content (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
             'locale' => [
                 'type' => 'String',
                 'description' => __(
                     'Language code (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'languageCode' => [
+                'type' => 'String',
+                'description' => __(
+                    '2 Char Language code (WPML)',
                     'wp-graphql-wpml'
                 ),
             ],
