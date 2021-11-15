@@ -31,41 +31,118 @@ function wpgraphqlwpml_is_graphql_request()
     return is_graphql_http_request();
 }
 
+// add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_disable_wpml', 100, 5);
 
 function wpgraphqlwpml_disable_wpml($query_args, $source, $args, $context, $info)
 {
-    // $query_args['suppress_wpml_where_and_join_filter'] = true;
+    // var_dump($query_args);
+    // die();
+    $query_args['suppress_wpml_where_and_join_filter'] = true;
     return $query_args;
 }
 
 add_action( 'graphql_register_types', function() {
+    /**
+     * Featured Projects Filter
+     */
+    register_graphql_field( 'RootQueryToProjectConnectionWhereArgs', 'featuredOnly', [
+        'type' => 'Boolean',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+    register_graphql_field( 'DisciplineToProjectConnectionWhereArgs', 'featuredOnly', [
+        'type' => 'Boolean',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+    register_graphql_field( 'SectorToProjectConnectionWhereArgs', 'featuredOnly', [
+        'type' => 'Boolean',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+
+    /**
+     * Languages Filters
+     */
     register_graphql_field( 'RootQueryToPostConnectionWhereArgs', 'language', [
         'type' => 'String',
         'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
     ] );
+
     register_graphql_field( 'RootQueryToProjectConnectionWhereArgs', 'language', [
+        'type' => 'String',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+
+    register_graphql_field( 'RootQueryToDisciplineConnectionWhereArgs', 'language', [
+        'type' => 'String',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+
+    register_graphql_field( 'RootQueryToSectorConnectionWhereArgs', 'language', [
+        'type' => 'String',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
+
+    register_graphql_field( 'RootQueryToPersonConnectionWhereArgs', 'language', [
         'type' => 'String',
         'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
     ] );
 } );
 
 
+// add_filter( 'graphql_connection_query_args', function( $query_args, $context ) {
+//     // var_dump($query_args); die();
+// }, 10, 2);
 
-
-add_filter( 'graphql_post_object_connection_query_args', function( $query_args, $source, $args, $context, $info ) {
+function filter_by_language_where_arg( $query_args, $source, $args, $context, $info ) {
     if ( isset( $args['where']['language'] ) && in_array( $args['where']['language'], ['de', 'en'] ) ) {
         global $sitepress;
         $lang = $args['where']['language'];
         $sitepress->switch_lang($lang);
-        // $sticky_ids = get_option( 'sticky_posts' );
-        // $query_args['posts_per_page'] = count( $sticky_ids );
-	    // $query_args['post__in'] = $sticky_ids;
+    }
+    if ( isset( $args['where']['language'] ) && 'all' == $args['where']['language'] ) {
+        // global $sitepress;
+        // $lang = $args['where']['language'];
+        // $sitepress->switch_lang($lang);
+        $query_args['suppress_wpml_where_and_join_filter'] = true;
     }
     return $query_args;
-}, 10, 5 );
+}
+
+add_filter( 'graphql_post_object_connection_query_args', 'filter_by_language_where_arg', 10, 5 );
+add_filter( 'graphql_term_object_connection_query_args', 'filter_by_language_where_arg', 10, 5 );
 
 
-// add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_disable_wpml', 100, 5);
+/**
+ * Filter Projects by featured checkbox and featured image
+ */
+function filter_by_featured_projects( $query_args, $source, $args, $context, $info ) {
+    if ( isset( $args['where']['featuredOnly'] ) && true === $args['where']['featuredOnly'] ) {
+        $featured_meta_query = [
+            'key' => 'featured_mission',
+            'value' => "1"
+        ];
+
+        $featured_image_meta_query = [
+            'key' => '_thumbnail_id',
+            'compare' => 'EXISTS'
+        ];
+
+        $meta_query = is_array($query_args["meta_query"]) ? $query_args["meta_query"] : [];
+
+        $meta_query[] = $featured_meta_query;
+        $meta_query[] = $featured_image_meta_query;
+
+        $query_args['meta_query'] = $meta_query;
+        // $query_args['meta_key'] = 'featured_mission';
+        // $query_args['meta_value'] = '1';
+    }
+
+
+    return $query_args;
+}
+
+add_filter( 'graphql_post_object_connection_query_args', 'filter_by_featured_projects', 10, 5 );
+add_filter( 'graphql_term_object_connection_query_args', 'filter_by_featured_projects', 10, 5 );
+
 
 function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 {
