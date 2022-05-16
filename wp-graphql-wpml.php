@@ -57,6 +57,10 @@ add_action( 'graphql_register_types', function() {
         'type' => 'Boolean',
         'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
     ] );
+    register_graphql_field( 'ListingToProjectConnectionWhereArgs', 'featuredOnly', [
+        'type' => 'Boolean',
+        'description' => __( 'Whether to only include sticky posts', 'your-textdomain' ),
+    ] );
 
     /**
      * Languages Filters
@@ -799,8 +803,13 @@ function wpgraphqlwpml__filter_graphql_connection_ids(array $ids, AbstractConnec
  * `switch_lang` method allows for setting toe current language to
  * 'all' - once set this way, taxonomies are not filtered by language.
  */
-function wpgraphqlwpml__switch_language_to_all_for_query(array $args)
+function wpgraphqlwpml__switch_language_to_all_for_query($args)
 {
+
+    if( ! is_array( $args ) ) {
+        return $args;
+    }
+
     global $sitepress;
 
     // Set lang to 'all' when querying for built-in taxonomies
